@@ -1,0 +1,61 @@
+---
+# find installed PHP versions
+#####
+
+- name: Gather the package facts.
+  package_facts:
+
+- name: Define _php_installed_versions.
+  set_fact:
+    _php_installed_versions: "{{ ansible_facts.packages | list | select('match', 'php([0-9]+\\.[0-9]+)') |
+      map('regex_search', '^php([0-9]+\\.[0-9]+)-(?:cli|fpm)$', '\\1') | flatten | unique }}"
+
+- name: Info - Print all installed PHP versions.
+  debug:
+    msg: "Installed PHP versions: {{ _php_installed_versions | join(', ') }}"
+
+# latest installed version
+- name: Block for defining _php_latest_installed_version.
+  block:
+    - name: Define _php_latest_installed_version, using filter.
+      set_fact:
+        _php_latest_installed_version: >-
+          {{ _php_installed_versions | reject('in', rc_drop) | community.general.version_sort | last | default('') }}
+      vars:
+        rc_drop: "{{ _php_repo_rc_versions if (php_stable_versions_only and
+          _php_installed_versions | reject('in', _php_repo_rc_versions) | length) else [] }}"
+
+  rescue:
+    - name: Define _php_latest_installed_version, without filter.
+      set_fact:
+        _php_latest_installed_version: >-
+          {{ item if ge_versions | length == 1 else _php_latest_installed_version | default('') }}
+      vars:
+        rc_drop: "{{ _php_repo_rc_versions if (php_stable_versions_only and
+          _php_installed_versions | reject('in', _php_repo_rc_versions) | length) else [] }}"
+        rc_dropped_installed_versions: "{{ _php_installed_versions | reject('in', rc_drop) }}"
+        ge_versions: "{{ rc_dropped_installed_versions | reject('version', item, '<') }}"
+      with_items: "{{ rc_dropped_installed_versions if rc_dropped_installed_versions | length else [''] }}"
+
+# Implementation as Block/Rescue because of an Ansible bug in 'is filter' logic, since Ansible Core 2.15.
+#   https://github.com/ansible/ansible/issues/82084
+# Note: The following two original Tasks commented out
+
+# - name: Define _php_latest_installed_version, using filter.
+#   set_fact:
+#     _php_latest_installed_version: "{{ _php_installed_versions | community.general.version_sort | last | default('') }}"
+#   when: "'community.general.version_sort' is filter"
+
+# - name: Define _php_latest_installed_version, without filter.
+#   set_fact:
+#     _php_latest_installed_version: "{{ item if ge_versions | length == 1
+#       else _php_latest_installed_version | default('') }}"
+#   vars:
+#     ge_versions: "{{ _php_installed_versions | reject('version', item, '<') }}"
+#   with_items: "{{ _php_installed_versions
+#     if ('community.general.version_sort' is not filter and _php_installed_versions | length) else [''] }}"
+#   when: "'community.general.version_sort' is not filter"
+
+- name: Info - Print latest installed PHP version.
+  debug:
+    msg: "Latest installed PHP version: {{ _php_latest_installed_version }}"

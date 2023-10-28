@@ -1,0 +1,48 @@
+---
+# Prepare configuration of conf.d/<FILENAME>.ini
+
+# Available Variables:
+#   _phpver (40_configure loop var)
+#   _php_variant (42_config_0_phpv loop var)
+
+
+- name: "Configure conf.d/___.ini for PHP {{ _phpver }}/{{ _php_variant }}."
+  copy:
+    dest: "{{ file }}"
+    content: |
+      {{ 'Ansible managed' | comment(decoration='; ') }}
+
+      {{ data.content }}
+    owner: root
+    group: root
+    mode: 0644
+  vars:
+    file: >-
+      {{ _php_confd_file | replace(_php_placeholder_version, _phpver)
+      | replace(_php_placeholder_variant, _php_variant)
+      | replace(_php_placeholder_name, item.key) }}
+    dict_value: "{{ item.value if item.value is mapping else {'content': item.value} }}"
+    default_dict:
+      state: present
+    data: "{{ default_dict | combine(dict_value) }}"
+  when: data.state == 'present'
+  loop: "{{ confd_settings | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}"
+  notify: restart php-fpm
+
+
+- name: "Remove conf.d/___.ini for PHP {{ _phpver }}/{{ _php_variant }}."
+  file:
+    path: "{{ file }}"
+    state: absent
+  vars:
+    file: >-
+      {{ _php_confd_file | replace(_php_placeholder_version, _phpver)
+      | replace(_php_placeholder_variant, _php_variant)
+      | replace(_php_placeholder_name, item.key) }}
+  when: (item.value.state | default('present')) == 'absent'
+  loop: "{{ confd_settings | dict2items | selectattr('value', 'mapping') | flatten(levels=1) }}"
+  loop_control:
+    label: "{{ item.key }}"
+  notify: restart php-fpm

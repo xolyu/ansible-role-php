@@ -1,0 +1,21 @@
+---
+# vars file for php
+
+_php_package_prefix: php
+
+_php_extensions_basis: ['cli', 'common']
+_php_extensions_fpm: ['fpm']
+_php_packages_apache: ['libapache2-mod-php']  # libapache2-mod-phpX.Y
+
+_php_placeholder_version: '##VERSION##'
+_php_placeholder_variant: '##VARIANT##'
+_php_placeholder_name: '##NAME##'
+
+_php_config_dir: /etc/php/
+_php_ini_file: /etc/php/##VERSION##/##VARIANT##/php.ini
+_php_confd_file: /etc/php/##VERSION##/##VARIANT##/conf.d/##NAME##.ini
+_php_fpm_pool_file: /etc/php/##VERSION##/fpm/pool.d/##NAME##
+_php_fpm_pool_ext: .conf
+_php_fpm_service_name: php##VERSION##-fpm.service
+
+_php_substr_sury_rc: '.0~rc'  # e.g.: 8.3.0~rc5-1+ubuntu20.04.1+deb.sury.org+1

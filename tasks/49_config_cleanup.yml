@@ -1,0 +1,35 @@
+---
+
+- name: "Find specific files for PHP {{ _phpver }}."
+  find:
+    path: "{{ (_php_config_dir, _phpver) | path_join }}"
+    patterns:
+      - php.ini.*
+      - www.disabled
+    recurse: yes
+  register: _result_files_specific
+
+# - debug:
+#     msg: "{{ _result_php_ini_files.files | map(attribute='path') }}"
+
+
+- name: "Find 'Ansible managed' files for PHP {{ _phpver }}."
+  find:
+    path: "{{ (_php_config_dir, _phpver) | path_join }}"
+    patterns:
+      - '*.ini'
+      - '*.conf'
+    contains: '.*Ansible managed'
+    recurse: yes
+  register: _result_files_ansible_managed
+
+# - debug:
+#     msg: "{{ _result_ansible_managed_files.files | map(attribute='path') }}"
+
+- name: "Remove found files for PHP {{ _phpver }}."
+  file:
+    path: "{{ item }}"
+    state: absent
+  with_items:
+    - "{{ _result_files_specific.files | map(attribute='path') }}"
+    - "{{ _result_files_ansible_managed.files | map(attribute='path') }}"

@@ -1,0 +1,37 @@
+{{ ansible_managed | comment(decoration='; ') }}
+{% macro php_dval(val, list_join=' ') -%}
+{%- if val is boolean %}{{ val | ternary('1', '0') }}
+{%- elif val is not string and val is not mapping and val is iterable %}{{ val | join(list_join) }}
+{%- else %}{{ val | string | replace(_php_placeholder_version, _phpver) | replace(_php_placeholder_name, pool_name) }}{% endif %}
+{%- endmacro %}
+{% macro php_directive(name, val) -%}
+{%- if val is mapping %}
+{% for k, v in val.items() %}
+{{ name }}[{{ k }}] = {{ php_dval(v) }}
+{% endfor %}
+{%- else %}
+{{ name }} = {{ php_dval(val) }}
+{%- endif %}
+{%- endmacro %}
+
+[{{ pool_name }}]
+{# batches #}
+{% set batches = [
+    _pool | list | select('in', ['user', 'group']),
+    _pool | list | select('match', 'listen'),
+    _pool | list | select('match', 'pm'),
+    _pool | list | select('match', 'env'),
+    _pool | list | select('match', 'php_admin_value')
+] %}
+{% for batch in batches %}
+{%   for dname in batch %}
+{{     php_directive(dname, _pool[dname]) }}
+{%   endfor %}
+
+{% endfor %}
+
+{# other #}
+{% set others = _pool | list | reject('in', batches | flatten) | reject('match', '_') %}
+{% for dname in others %}
+{{   php_directive(dname, _pool[dname]) }}
+{% endfor %}

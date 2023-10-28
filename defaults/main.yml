@@ -1,0 +1,78 @@
+---
+# defaults file for php
+
+php_package_source: system_maintainer  # system_maintainer, sury_ondrej
+
+php_ensure_requirements: no
+
+php_stable_versions_only: yes
+
+php_versions_present: latest  # latest, x.y
+php_versions_absent: []  # all_except_present, x.y
+
+php_fpm_enabled: yes
+php_apache_mod_enabled: no
+
+php_extensions:
+  - apcu
+  - bcmath
+  - curl
+  - gd
+  - gnupg
+  - igbinary
+  - imagick
+  - intl
+  - mbstring
+  - mysql
+  - opcache
+  - pspell
+  - soap
+  - sqlite3
+  - tidy
+  - uuid
+  - xml
+  - xmlrpc
+  - yaml
+  - zip
+
+php_extensions_extra: []
+
+php_ini_file_backup: keep-original  # keep-original, yes, no
+
+php_ini_settings:
+  max_execution_time: 30
+  max_input_time: 60
+  Date/date.timezone: Europe/Berlin
+
+php_ini_settings_specific: {}
+  # Variants: cli, fpm, apache2
+  # Versions: latest, not-latest, X.Y
+  # cli, fpm, 8.0, latest, 8.0/cli, 8.0/fpm
+
+php_confd_settings: {}
+
+php_confd_settings_specific: {}
+
+php_fpm_pool_defaults:
+  listen: /run/php/fpm.##NAME##.sock
+  listen.owner: www-data
+  listen.group: www-data
+  user: www-data
+  group: www-data
+  pm: dynamic
+  pm.max_children: 5
+  pm.start_servers: 2
+  pm.min_spare_servers: 1
+  pm.max_spare_servers: 3
+  env:
+    HOSTNAME: $HOSTNAME
+    PATH: /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+    TEMP: /tmp
+    TMP: /tmp
+    TMPDIR: /tmp
+
+php_fpm_pools: {}
+
+php_fpm_pool_absent_unconfigured_versions: yes
+
+php_fpm_pool_www_state: noop  # noop, enabled, disabled

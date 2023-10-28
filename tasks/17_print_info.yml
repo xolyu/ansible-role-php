@@ -1,0 +1,20 @@
+---
+
+# find currently installed versions
+# - name: Include installed PHP versions tasks.
+#   include_tasks: 12_installed_phpv.yml
+#   when: _result_php_common_uninstall is defined  and  _result_php_common_uninstall is changed
+
+# print information
+- name: Info - Installed php versions.
+  debug:
+    msg: "{{ _php_installed_versions | join(', ') }}"
+
+- name: Info - Installed php* packages.
+  debug:
+    msg: "{{ php_pkgs | join(', ') }}"
+  vars:
+    php_common: "{{ 'php-common'
+      if _result_php_common_uninstall is defined  and  _result_php_common_uninstall is changed
+      else '' }}"
+    php_pkgs: "{{ ansible_facts.packages | list | select('match', 'php') | reject('eq', php_common) }}"

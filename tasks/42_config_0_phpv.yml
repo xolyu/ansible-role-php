@@ -1,0 +1,44 @@
+---
+# Configure single PHP version.
+
+# Available Variables:
+#   _phpver (40_configure loop var)
+
+
+- name: Configure php.ini.
+  include_tasks: 42_config_1_php-ini.yml
+  vars:
+    php_ini_file: >-
+      {{ _php_ini_file | replace(_php_placeholder_version, _phpver)
+      | replace(_php_placeholder_variant, _php_variant) }}
+    latest_ver: "{{ 'latest' if _phpver_is_latest else 'not-latest' }}"
+    ini_settings: >-
+      {{ php_ini_settings | default({})
+      | combine( php_ini_settings_specific[_php_variant] | default({}) )
+      | combine( php_ini_settings_specific[_phpver] | default({}) )
+      | combine( php_ini_settings_specific[latest_ver] | default({}) )
+      | combine( php_ini_settings_specific[_phpver ~ '/' ~ _php_variant] | default({}) )
+      | combine( php_ini_settings_specific[latest_ver ~ '/' ~ _php_variant] | default({}) )
+      }}
+  loop: >-
+    {{ ['cli'] + (['fpm'] if php_fpm_enabled else []) + (['apache2'] if php_apache_mod_enabled else []) }}
+  loop_control:
+    loop_var: _php_variant
+
+
+- name: Configure confd ini's.
+  include_tasks: 42_config_2_confd-ini.yml
+  vars:
+    latest_ver: "{{ 'latest' if _phpver_is_latest else 'not-latest' }}"
+    confd_settings: >-
+      {{ php_confd_settings | default({})
+      | combine( php_confd_settings_specific[_php_variant] | default({}) )
+      | combine( php_confd_settings_specific[_phpver] | default({}) )
+      | combine( php_confd_settings_specific[latest_ver] | default({}) )
+      | combine( php_confd_settings_specific[_phpver ~ '/' ~ _php_variant] | default({}) )
+      | combine( php_confd_settings_specific[latest_ver ~ '/' ~ _php_variant] | default({}) )
+      }}
+  loop: >-
+    {{ ['cli'] + (['fpm'] if php_fpm_enabled else []) + (['apache2'] if php_apache_mod_enabled else []) }}
+  loop_control:
+    loop_var: _php_variant

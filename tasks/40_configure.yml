@@ -1,0 +1,49 @@
+---
+
+- name: Configure all present PHP versions.
+  include_tasks: 42_config_0_phpv.yml
+  vars:
+    _phpver_is_latest: "{{ _phpver == _php_latest_installed_version }}"
+  loop: "{{ _php_installed_versions }}"
+  loop_control:
+    loop_var: _phpver
+    label: "PHP {{ _phpver }}"
+
+
+- name: Configure FPM pools, when FPM is enabled.
+  include_tasks: 45_config_fpm-pool.yml
+  vars:
+    desvers_inval: "{{ _php_pool.settings._php_versions | default('latest') }}"
+    desvers_list: "{{ [desvers_inval] if desvers_inval is string else desvers_inval }}"
+    desvers_keywords: >-
+      {{
+      _php_installed_versions if 'all' in desvers_list else
+      ((desvers_list + [_php_latest_installed_version]) | reject('eq', 'latest')) if 'latest' in desvers_list else
+      desvers_list
+      }}
+    desired_phpvers: "{{ _php_installed_versions | select('in', desvers_keywords) }}"
+    remaining_phpvers: "{{ _php_installed_versions | reject('in', desired_phpvers) }}"
+    pool_state: "{{ _php_pool.settings._state | default('present') }}"
+  loop: "{{ php_fpm_pools | dict2items(key_name='name', value_name='settings')
+    if _php_installed_versions | length else [] }}"
+  loop_control:
+    loop_var: _php_pool
+    label: "{{ _php_pool.name }}"
+  when: php_fpm_enabled
+
+
+- name: Ensure state for default FPM pool 'www'.
+  command: "mv {{ src }} {{ dest }}"
+  args:
+    removes: "{{ src }}"
+    creates: "{{ dest }}"
+  vars:
+    file_prefix: "{{ _php_fpm_pool_file | replace(_php_placeholder_version, item)
+      | replace(_php_placeholder_name, 'www') }}"
+    file_extension:
+      enabled: "{{ ['.disabled', _php_fpm_pool_ext] }}"
+      disabled: "{{ [_php_fpm_pool_ext, '.disabled'] }}"
+    src: "{{ file_prefix ~ file_extension[php_fpm_pool_www_state][0] }}"
+    dest: "{{ file_prefix ~ file_extension[php_fpm_pool_www_state][1] }}"
+  with_items: "{{ _php_installed_versions if php_fpm_pool_www_state in ['enabled', 'disabled'] else [] }}"
+  notify: restart php-fpm

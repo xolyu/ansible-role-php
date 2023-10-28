@@ -1,0 +1,15 @@
+---
+
+- name: Restart all installed versions of PHP FPM.
+  service:
+    name: "{{ _php_fpm_service_name | replace(_php_placeholder_version, item) }}"
+    state: restarted
+  with_items: "{{ _php_installed_versions }}"
+  ignore_errors: true
+  register: _result_restart
+
+- name: Restart PHP FPM, but only failed ones.
+  service:
+    name: "{{ _php_fpm_service_name | replace(_php_placeholder_version, item) }}"
+    state: restarted
+  with_items: "{{ _result_restart.results | select('failed') | map(attribute='item') }}"

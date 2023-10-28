@@ -1,0 +1,29 @@
+---
+# Configure php.ini
+
+# Available Variables:
+#   _phpver (40_configure loop var)
+#   _php_variant (42_config_0_phpv loop var)
+
+
+- name: "Keep original php.ini for PHP {{ _phpver }}/{{_php_variant}}"
+  copy:
+    src: "{{ php_ini_file }}"
+    dest: "{{ php_ini_file }}.original"
+    remote_src: yes
+    force: no  # only if dest not exists
+  when: php_ini_file_backup == 'keep-original'
+
+- name: "Configure php.ini for PHP {{ _phpver }}/{{_php_variant}}"
+  community.general.ini_file:
+    path: "{{ php_ini_file }}"
+    create: false  # fail if file does not exist
+    backup: "{{ php_ini_file_backup in ['yes', true] }}"
+    section: "{{ item_section }}"
+    option: "{{ item_option }}"
+    value: "{{ item.value }}"
+  vars:
+    item_section: "{{ 'PHP' if '/' not in item.key else item.key | split('/') | first }}"
+    item_option: "{{ item.key if '/' not in item.key else item.key | split('/') | last }}"
+  with_dict: "{{ ini_settings }}"
+  notify: restart php-fpm

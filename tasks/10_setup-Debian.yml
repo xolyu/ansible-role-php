@@ -1,0 +1,175 @@
+---
+
+# ondrej: https://deb.sury.org/
+# add ppa for ubuntu: https://launchpad.net/~ondrej/+archive/ubuntu/php
+# add debian repository: https://packages.sury.org/php/README.txt
+
+- name: Ensure Ondrej's PHP PPA on Ubuntu.
+  apt_repository:
+    repo: 'ppa:ondrej/php'
+    state: "{{ 'present' if php_package_source == 'sury_ondrej' else 'absent' }}"
+  register: _result_php_repo_ubuntu
+  when: ansible_distribution == 'Ubuntu'
+
+- name: Ensure Ondrej's PHP repository on Debian.
+  when: ansible_distribution != 'Ubuntu'
+  block:
+    - name: Ensure required packages are installed.
+      apt:
+        name: python3-debian
+      when: php_ensure_requirements
+
+    - name: Ensure Ondrej's PHP repository on Debian.
+      deb822_repository:  # available since Ansible 2.15
+        name: sury_ondrej_php
+        uris: https://packages.sury.org/php/
+        suites: "{{ ansible_distribution_release }}"
+        components: main
+        signed_by: https://packages.sury.org/php/apt.gpg
+        state: "{{ 'present' if php_package_source == 'sury_ondrej' else 'absent' }}"
+      register: _result_php_repo_debian
+
+    # - name: Ensure keyring for Ondrej's PHP repository for Debian.
+    #   xolyu.misc.apt_keyring:
+    #     name: sury_ondrej
+    #     url: https://packages.sury.org/php/apt.gpg
+    #     state: "{{ 'present' if php_package_source == 'sury_ondrej' else 'absent' }}"
+    #   register: _result_keyring
+
+    # - name: Ensure Ondrej's PHP repository is present on Debian.
+    #   apt_repository:
+    #     repo: "deb [signed-by={{ _result_keyring.file }}] https://packages.sury.org/php/ {{ ansible_distribution_release }} main"
+    #     state: "{{ 'present' if php_package_source == 'sury_ondrej' else 'absent' }}"
+
+- name: Update apt cache if needed.
+  apt:
+    update_cache: true
+    cache_valid_time: "{{ 0 if update_required else apt_update_cache_valid_time | default(3600) }}"
+  vars:
+    update_required: "{{ _result_php_repo_ubuntu is changed or _result_php_repo_debian is changed }}"
+
+
+# all repo versions
+- name: Find PHP versions in repository.
+  command:
+    cmd: 'apt-cache search "^php[0-9]+\.[0-9]+-cli$"'
+  register: _php_repo_versions
+  changed_when: false
+
+- name: Redefine _php_repo_versions, reduce result to version numbers.
+  set_fact:
+    _php_repo_versions: "{{ _php_repo_versions.stdout_lines |
+      map('regex_search', '^php([0-9]+\\.[0-9]+)-cli', '\\1') | flatten | unique }}"
+
+
+# RC versions in repo
+- name: Define _php_repo_rc_versions, as an empty list.
+  set_fact:
+    _php_repo_rc_versions: []
+
+- name: Block for defining _php_repo_rc_versions.
+  when: php_package_source == 'sury_ondrej'
+  block:
+    - name: Find version strings for all available PHP versions.
+      command:
+        cmd: "apt-cache madison {{ php_cli_pkgs | join(' ') }}"
+      vars:
+        php_cli_pkgs: "{{ ['php'] | product(_php_repo_versions) | map('join', '') |
+          product(['cli']) | map('join', '-') }}"
+      register: _php_repo_rc_versions
+      changed_when: false
+
+    - name: Redefine _php_repo_rc_versions, reduce result to version numbers.
+      set_fact:
+        _php_repo_rc_versions: >-
+          {{ rc_lines | map('regex_search', '^php([0-9]+\.[0-9]+)-cli', '\1') | flatten | unique }}
+      vars:
+        sury_substr: "{{ '.sury.org' | regex_escape }}"
+        rc_substr: "{{ _php_substr_sury_rc | regex_escape }}"
+        rc_lines: >-
+          {{ _php_repo_rc_versions.stdout_lines | select('match', '.+'~sury_substr)
+          | select('match', '.+'~rc_substr) }}
+
+    - name: Info - Print identified RC versions.
+      debug:
+        msg: "Identified RC versions: {{ _php_repo_rc_versions | join(', ') }}"
+
+  rescue:
+    - name: Redefine _php_repo_rc_versions, as an empty list.
+      set_fact:
+        _php_repo_rc_versions: []
+
+
+# generate version variables
+- name: Include version variable tasks.
+  include_tasks: 11_version_vars.yml
+
+
+# uninstall packages
+- name: Include cleanup for deselected PHP versions.
+  include_tasks: 49_config_cleanup.yml
+  loop: "{{ php_versions_absent }}"
+  loop_control:
+    loop_var: _phpver
+
+- name: Remove deselected PHP versions with extensions.
+  apt:
+    name: "{{ php_packages_prefix_absent | product(['', '-*']) | map('join', '') | list }}"
+    state: absent
+    purge: yes
+  when: php_packages_prefix_absent | length
+  register: _result_php_uninstall
+
+- name: Remove PHP module for Apache.
+  apt:
+    name: "{{ _php_packages_apache | product(php_versions_absent) | map('join', '') | list }}"
+    state: absent
+    purge: yes
+  when: php_packages_prefix_absent | length
+  register: _result_php_apache_mod_uninstall
+
+
+# install packages
+- name: Ensure PHP versions and extensions are present.
+  apt:
+    name: "{{ [item] | product(php_extensions_basis) | map('join', '-') | list }}"
+  with_items: "{{ php_packages_prefix_present }}"
+  register: _result_php_install
+
+- name: Ensure additional PHP extensions are present.
+  apt:
+    name: "{{ item }}"
+  with_items: "{{ php_pkgs_to_install }}"
+  ignore_errors: true
+  register: _result_php_extension_install
+  vars:
+    installed_pkgs: "{{ ansible_facts.packages | list }}"
+    php_pkgs: "{{ php_packages_prefix_present | product(php_extensions_additional) | map('join', '-') | list }}"
+    php_pkgs_to_install: "{{ php_pkgs | reject('in', installed_pkgs) }}"
+
+- name: Ensure PHP module for Apache is present.
+  apt:
+    name: "{{ _php_packages_apache | product(php_versions_present) | map('join', '') | list }}"
+  when: php_apache_mod_enabled
+  register: _result_php_apache_mod_install
+
+
+# find currently installed versions
+- name: Include installed PHP versions tasks.
+  include_tasks: 12_installed_phpv.yml
+  when: >-
+    _result_php_install is changed  or  _result_php_extension_install is changed
+    or  _result_php_apache_mod_install is changed
+    or  _result_php_uninstall is changed  or  _result_php_apache_mod_uninstall is changed
+
+
+# remove PHP common packages
+- name: Remove PHP common package, after all PHP versions are absent.
+  apt:
+    name: php-common
+    state: absent
+    purge: yes
+  when: >-
+    _php_installed_versions | length == 0  and
+    ( _result_php_uninstall is changed  or  _result_php_apache_mod_uninstall is changed )
+  register: _result_php_common_uninstall

@@ -1,0 +1,81 @@
+---
+
+# latest repo version, consider RC versions
+- name: Block for defining _php_latest_repo_version.
+  block:
+    - name: Define _php_latest_repo_version, using filter.
+      set_fact:
+        _php_latest_repo_version: >-
+          {{ _php_repo_versions | reject('in', rc_drop) | community.general.version_sort | last | default('') }}
+      vars:
+        rc_drop: "{{ _php_repo_rc_versions if php_stable_versions_only else [] }}"
+
+  rescue:
+    - name: Define _php_latest_repo_version, without filter.
+      set_fact:
+        _php_latest_repo_version: >-
+          {{ item if ge_versions | length == 1 else _php_latest_repo_version | default('') }}
+      vars:
+        rc_drop: "{{ _php_repo_rc_versions if php_stable_versions_only else [] }}"
+        rc_dropped_repo_versions: "{{ _php_repo_versions | reject('in', rc_drop) }}"
+        ge_versions: "{{ rc_dropped_repo_versions | reject('version', item, '<') }}"
+      with_items: "{{ rc_dropped_repo_versions if rc_dropped_repo_versions | length else [''] }}"
+
+# Implementation as Block/Rescue because of an Ansible bug in 'is filter' logic, since Ansible Core 2.15.
+#   https://github.com/ansible/ansible/issues/82084
+# Note: The following two original Tasks commented out
+
+# - name: Define _php_latest_repo_version, using filter.
+#   set_fact:
+#     _php_latest_repo_version: "{{ _php_repo_versions | community.general.version_sort | last }}"
+#   when: "'community.general.version_sort' is filter"
+
+# - name: Define _php_latest_repo_version, without filter.
+#   set_fact:
+#     _php_latest_repo_version: "{{ item if ge_versions | length == 1
+#       else _php_latest_repo_version | default('') }}"
+#   vars:
+#     ge_versions: "{{ _php_repo_versions | reject('version', item, '<') }}"
+#   with_items: "{{ _php_repo_versions
+#     if ('community.general.version_sort' is not filter and _php_repo_versions | length) else [] }}"
+#   when: "'community.general.version_sort' is not filter"
+
+- name: Info - Print latest PHP version in repo.
+  debug:
+    msg: "Latest PHP version in repo: {{ _php_latest_repo_version }}"
+
+# installed PHP versions
+- name: Include installed PHP versions tasks.
+  include_tasks: 12_installed_phpv.yml
+
+# calculate php versions present/absent
+- name: Redefine php_versions_present, insert latest version number.
+  set_fact:
+    php_versions_present: "{{ (php_versions_present | reject('==', 'latest')) +
+      [_php_latest_repo_version] }}"
+  when: "'latest' in php_versions_present"
+
+- name: Redefine php_versions_present.
+  set_fact:
+    php_versions_present: "{{ php_versions_present | select('in', _php_repo_versions) }}"
+
+- name: Redefine php_versions_absent, all_except_present.
+  set_fact:
+    php_versions_absent: "{{ _php_installed_versions | reject('in', php_versions_present) }}"
+  when: "'all_except_present' in php_versions_absent"
+
+- name: Redefine php_versions_absent.
+  set_fact:
+    php_versions_absent: "{{ php_versions_absent | select('in', _php_installed_versions) }}"
+
+- name: Define php_packages_prefix_present/_absent, versions with prefix.
+  set_fact:
+    php_packages_prefix_present: >-
+      {{ [_php_package_prefix] | product(php_versions_present) | map('join', '') | list }}
+    php_packages_prefix_absent: >-
+      {{ [_php_package_prefix] | product(php_versions_absent) | map('join', '') | list }}
+
+# - debug:
+#     var: php_packages_prefix_present
+# - debug:
+#     var: php_packages_prefix_absent

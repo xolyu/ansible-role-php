@@ -1,0 +1,32 @@
+---
+galaxy_info:
+  author: xolyu
+  role_name: php
+  description: PHP installation and configuration
+  # company: your company
+
+  # If the issue tracker for your role is not on github
+  # issue_tracker_url: http://example.com/issue/tracker
+
+  license: GPL-3.0-only
+
+  min_ansible_version: '2.15'
+
+  # If this a Container Enabled role, provide the minimum Ansible Container version.
+  # min_ansible_container_version:
+
+  platforms:
+    - name: Ubuntu
+      versions:
+        - bionic
+        - focal
+        - jammy
+    - name: Debian
+      versions:
+        - buster
+        - bullseye
+        - bookworm
+
+  galaxy_tags: []
+
+dependencies: []

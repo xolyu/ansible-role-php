@@ -1,0 +1,14 @@
+---
+# tasks file for php
+
+- name: Include varaible tasks.
+  include_tasks: 01_variables.yml
+
+- name: Include setup tasks.
+  include_tasks: "10_setup-{{ ansible_os_family }}.yml"
+
+- name: Include info printing tasks.
+  include_tasks: 17_print_info.yml
+
+- name: Include configuration tasks.
+  include_tasks: 40_configure.yml

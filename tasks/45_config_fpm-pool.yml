@@ -1,0 +1,48 @@
+---
+# Configure a FPM pool for all PHP versions.
+
+# Available Variables:
+#   _php_pool (40_configure loop var)
+
+
+- name: "Template FPM pool '{{ _php_pool.name }}'."
+  template:
+    src: fpm-pool.conf.j2
+    dest: "{{ file }}"
+    owner: root
+    group: root
+    mode: 0644
+  vars:
+    file: >-
+      {{ _php_fpm_pool_file | replace(_php_placeholder_version, item)
+      | replace(_php_placeholder_name, _php_pool.name) }}{{ _php_fpm_pool_ext }}
+    _phpver: "{{ item }}"
+    pool_name: "{{ _php_pool.name }}"
+    _pool: "{{ php_fpm_pool_defaults | combine(_php_pool.settings) }}"
+  with_items: "{{ desired_phpvers }}"
+  when: pool_state == 'present'
+  notify: restart php-fpm
+
+- name: "Remove FPM pool '{{ _php_pool.name }}'."
+  file:
+    path: "{{ file }}"
+    state: absent
+  vars:
+    file: >-
+      {{ _php_fpm_pool_file | replace(_php_placeholder_version, item)
+      | replace(_php_placeholder_name, _php_pool.name) }}{{ _php_fpm_pool_ext }}
+  with_items: "{{ desired_phpvers }}"
+  when: pool_state == 'absent'
+  notify: restart php-fpm
+
+- name: "Remove FPM pool '{{ _php_pool.name }}' for unconfigured PHP versions."
+  file:
+    path: "{{ file }}"
+    state: absent
+  vars:
+    file: >-
+      {{ _php_fpm_pool_file | replace(_php_placeholder_version, item)
+      | replace(_php_placeholder_name, _php_pool.name) }}{{ _php_fpm_pool_ext }}
+  with_items: "{{ remaining_phpvers }}"
+  when: php_fpm_pool_absent_unconfigured_versions
+  notify: restart php-fpm

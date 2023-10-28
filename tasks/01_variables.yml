@@ -1,0 +1,25 @@
+---
+
+- name: Redefine php_versions_present.
+  set_fact:
+    php_versions_present: "{{ [php_versions_present] }}"
+  when: php_versions_present is string
+
+- name: Redefine php_versions_absent.
+  set_fact:
+    php_versions_absent: "{{ [php_versions_absent] }}"
+  when: php_versions_absent is string
+
+- name: Define php_extensions_basis.
+  set_fact:
+    php_extensions_basis: "{{ basis + fpm }}"
+  vars:
+    basis: "{{ _php_extensions_basis }}"
+    fpm: "{{ _php_extensions_fpm if php_fpm_enabled else [] }}"
+
+- name: Define php_extensions_additional.
+  set_fact:
+    php_extensions_additional: "{{ php_extensions + extra }}"
+  vars:
+    fpm: "{{ _php_extensions_fpm if php_fpm_enabled else [] }}"
+    extra: "{{ php_extensions_extra | default([]) }}"
