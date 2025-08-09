@@ -4,12 +4,40 @@
 # add ppa for ubuntu: https://launchpad.net/~ondrej/+archive/ubuntu/php
 # add debian repository: https://packages.sury.org/php/README.txt
 
-- name: Ensure Ondrej's PHP PPA on Ubuntu.
+- name: Ensure Ondrej's PHP PPA on Ubuntu < 22.04.
+  when: ansible_distribution == 'Ubuntu' and ansible_distribution_version is version('22.04', '<')
   apt_repository:
     repo: 'ppa:ondrej/php'
     state: "{{ 'present' if php_package_source == 'sury_ondrej' else 'absent' }}"
-  register: _result_php_repo_ubuntu
-  when: ansible_distribution == 'Ubuntu'
+  register: _result_php_repo_ubuntu_old
+
+- name: Ensure Ondrej's PHP PPA on Ubuntu >= 22.04.
+  when: ansible_distribution == 'Ubuntu' and ansible_distribution_version is version('22.04', '>=')
+  block:
+    - name: Ensure Ondrej's PHP PPA added by apt_repository is absent.
+      apt_repository:
+        repo: 'ppa:ondrej/php'
+        state: absent
+
+    - name: Remove Ondrej's Launchpad PPA key from trusted.gpg.
+      apt_key:
+        id: B8DC7E53946656EFBCE4C1DD71DAEAAB4AD4CAB6
+        state: absent
+
+    - name: Ensure required packages are installed.
+      apt:
+        name: python3-debian
+      when: php_ensure_requirements
+
+    - name: Ensure Ondrej's PHP repository on Ubuntu.
+      deb822_repository:  # available since Ansible 2.15
+        name: sury_ondrej_php
+        uris: https://ppa.launchpadcontent.net/ondrej/php/ubuntu
+        suites: "{{ ansible_distribution_release }}"
+        components: main
+        signed_by: https://keyserver.ubuntu.com/pks/lookup?op=get&search=0xB8DC7E53946656EFBCE4C1DD71DAEAAB4AD4CAB6
+        state: "{{ 'present' if php_package_source == 'sury_ondrej' else 'absent' }}"
+      register: _result_php_repo_ubuntu
 
 - name: Ensure Ondrej's PHP repository on Debian.
   when: ansible_distribution != 'Ubuntu'
@@ -29,24 +57,13 @@
         state: "{{ 'present' if php_package_source == 'sury_ondrej' else 'absent' }}"
       register: _result_php_repo_debian
 
-    # - name: Ensure keyring for Ondrej's PHP repository for Debian.
-    #   xolyu.misc.apt_keyring:
-    #     name: sury_ondrej
-    #     url: https://packages.sury.org/php/apt.gpg
-    #     state: "{{ 'present' if php_package_source == 'sury_ondrej' else 'absent' }}"
-    #   register: _result_keyring
-
-    # - name: Ensure Ondrej's PHP repository is present on Debian.
-    #   apt_repository:
-    #     repo: "deb [signed-by={{ _result_keyring.file }}] https://packages.sury.org/php/ {{ ansible_distribution_release }} main"
-    #     state: "{{ 'present' if php_package_source == 'sury_ondrej' else 'absent' }}"
-
 - name: Update apt cache if needed.
   apt:
     update_cache: true
     cache_valid_time: "{{ 0 if update_required else apt_update_cache_valid_time | default(3600) }}"
   vars:
-    update_required: "{{ _result_php_repo_ubuntu is changed or _result_php_repo_debian is changed }}"
+    update_required: "{{ _result_php_repo_ubuntu is changed or _result_php_repo_debian is changed
+      or _result_php_repo_ubuntu_old is changed }}"
 
 
 # all repo versions

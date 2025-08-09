@@ -9,7 +9,7 @@ The role allows managing present PHP versions and automatically installing the l
 
 ## Requirements
 
-* Systempackage `python3-debian` &ndash; for Ansible's module [`deb822_repository`](https://docs.ansible.com/ansible/latest/collections/ansible/builtin/deb822_repository_module.html), only on Debian when using Ondřej's package source.
+* Systempackage `python3-debian` &ndash; for Ansible's module [`deb822_repository`](https://docs.ansible.com/ansible/latest/collections/ansible/builtin/deb822_repository_module.html), only when using Ondřej's package source.
 
 *For automatic ensuring of the packages, see variable `php_ensure_requirements`.*
 
