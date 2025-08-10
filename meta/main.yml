@@ -21,11 +21,12 @@ galaxy_info:
         - bionic
         - focal
         - jammy
+        - noble
     - name: Debian
       versions:
-        - buster
         - bullseye
         - bookworm
+        - trixie
 
   galaxy_tags: []
 
