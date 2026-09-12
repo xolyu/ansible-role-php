@@ -19,7 +19,7 @@
         rc_drop: "{{ _php_repo_rc_versions if php_stable_versions_only else [] }}"
         rc_dropped_repo_versions: "{{ _php_repo_versions | reject('in', rc_drop) }}"
         ge_versions: "{{ rc_dropped_repo_versions | reject('version', item, '<') }}"
-      with_items: "{{ rc_dropped_repo_versions if rc_dropped_repo_versions | length else [''] }}"
+      with_items: "{{ rc_dropped_repo_versions if rc_dropped_repo_versions | length > 0 else [''] }}"
 
 # Implementation as Block/Rescue because of an Ansible bug in 'is filter' logic, since Ansible Core 2.15.
 #   https://github.com/ansible/ansible/issues/82084
@@ -37,7 +37,7 @@
 #   vars:
 #     ge_versions: "{{ _php_repo_versions | reject('version', item, '<') }}"
 #   with_items: "{{ _php_repo_versions
-#     if ('community.general.version_sort' is not filter and _php_repo_versions | length) else [] }}"
+#     if ('community.general.version_sort' is not filter and _php_repo_versions | length > 0) else [] }}"
 #   when: "'community.general.version_sort' is not filter"
 
 - name: Info - Print latest PHP version in repo.

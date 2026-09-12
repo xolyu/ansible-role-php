@@ -25,7 +25,7 @@
     remaining_phpvers: "{{ _php_installed_versions | reject('in', desired_phpvers) }}"
     pool_state: "{{ _php_pool.settings._state | default('present') }}"
   loop: "{{ php_fpm_pools | dict2items(key_name='name', value_name='settings')
-    if _php_installed_versions | length else [] }}"
+    if _php_installed_versions | length > 0 else [] }}"
   loop_control:
     loop_var: _php_pool
     label: "{{ _php_pool.name }}"

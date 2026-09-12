@@ -134,7 +134,7 @@
     name: "{{ php_packages_prefix_absent | product(['', '-*']) | map('join', '') | list }}"
     state: absent
     purge: yes
-  when: php_packages_prefix_absent | length
+  when: php_packages_prefix_absent | length > 0
   register: _result_php_uninstall
 
 - name: Remove PHP module for Apache.
@@ -142,7 +142,7 @@
     name: "{{ _php_packages_apache | product(php_versions_absent) | map('join', '') | list }}"
     state: absent
     purge: yes
-  when: php_packages_prefix_absent | length
+  when: php_packages_prefix_absent | length > 0
   register: _result_php_apache_mod_uninstall
 
 
