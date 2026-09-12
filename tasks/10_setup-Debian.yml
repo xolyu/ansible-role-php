@@ -5,14 +5,14 @@
 # add debian repository: https://packages.sury.org/php/README.txt
 
 - name: Ensure Ondrej's PHP PPA on Ubuntu < 22.04.
-  when: ansible_distribution == 'Ubuntu' and ansible_distribution_version is version('22.04', '<')
+  when: ansible_facts.distribution == 'Ubuntu' and ansible_facts.distribution_version is version('22.04', '<')
   apt_repository:
     repo: 'ppa:ondrej/php'
     state: "{{ 'present' if php_package_source == 'sury_ondrej' else 'absent' }}"
   register: _result_php_repo_ubuntu_old
 
 - name: Ensure Ondrej's PHP PPA on Ubuntu >= 22.04.
-  when: ansible_distribution == 'Ubuntu' and ansible_distribution_version is version('22.04', '>=')
+  when: ansible_facts.distribution == 'Ubuntu' and ansible_facts.distribution_version is version('22.04', '>=')
   block:
     - name: Ensure Ondrej's PHP PPA added by apt_repository is absent.
       apt_repository:
@@ -33,14 +33,14 @@
       deb822_repository:  # available since Ansible 2.15
         name: sury_ondrej_php
         uris: https://ppa.launchpadcontent.net/ondrej/php/ubuntu
-        suites: "{{ ansible_distribution_release }}"
+        suites: "{{ ansible_facts.distribution_release }}"
         components: main
         signed_by: https://keyserver.ubuntu.com/pks/lookup?op=get&search=0xB8DC7E53946656EFBCE4C1DD71DAEAAB4AD4CAB6
         state: "{{ 'present' if php_package_source == 'sury_ondrej' else 'absent' }}"
       register: _result_php_repo_ubuntu
 
 - name: Ensure Ondrej's PHP repository on Debian.
-  when: ansible_distribution != 'Ubuntu'
+  when: ansible_facts.distribution != 'Ubuntu'
   block:
     - name: Ensure required packages are installed.
       apt:
@@ -51,7 +51,7 @@
       deb822_repository:  # available since Ansible 2.15
         name: sury_ondrej_php
         uris: https://packages.sury.org/php/
-        suites: "{{ ansible_distribution_release }}"
+        suites: "{{ ansible_facts.distribution_release }}"
         components: main
         signed_by: https://packages.sury.org/php/apt.gpg
         state: "{{ 'present' if php_package_source == 'sury_ondrej' else 'absent' }}"
