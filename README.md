@@ -30,6 +30,11 @@ The role allows managing present PHP versions and automatically installing the l
   Choices: `system_maintainer`, `sury_ondrej`  
   Default: `system_maintainer`
 
+* **`php_package_source_sury_ubuntu`**  
+  Package source of Sury's package on Ubuntu.  
+  Choices: `sury` (packages.sury.org), `ppa` (Ubuntu PPA)  
+  Default: `sury`
+
 * **`php_ensure_requirements`**  
   Provides for the installation of the packages listed in section requirements.  
   Type: bool  

@@ -11,10 +11,13 @@
     state: "{{ 'present' if php_package_source == 'sury_ondrej' else 'absent' }}"
   register: _result_php_repo_ubuntu_old
 
-- name: Ensure Ondrej's PHP PPA on Ubuntu >= 22.04.
-  when: ansible_facts.distribution == 'Ubuntu' and ansible_facts.distribution_version is version('22.04', '>=')
+- name: Remove Ondrej's PHP PPA on Ubuntu >= 22.04 and <= 24.04.
+  when:
+    - ansible_facts.distribution == 'Ubuntu'
+    - ansible_facts.distribution_version is version('22.04', '>=')
+    - ansible_facts.distribution_version is version('24.04', '<=')
   block:
-    - name: Ensure Ondrej's PHP PPA added by apt_repository is absent.
+    - name: Remove Ondrej's PHP PPA added by apt_repository.
       apt_repository:
         repo: 'ppa:ondrej/php'
         state: absent
@@ -24,23 +27,8 @@
         id: B8DC7E53946656EFBCE4C1DD71DAEAAB4AD4CAB6
         state: absent
 
-    - name: Ensure required packages are installed.
-      apt:
-        name: python3-debian
-      when: php_ensure_requirements
-
-    - name: Ensure Ondrej's PHP repository on Ubuntu.
-      deb822_repository:  # available since Ansible 2.15
-        name: sury_ondrej_php
-        uris: https://ppa.launchpadcontent.net/ondrej/php/ubuntu
-        suites: "{{ ansible_facts.distribution_release }}"
-        components: main
-        signed_by: https://keyserver.ubuntu.com/pks/lookup?op=get&search=0xB8DC7E53946656EFBCE4C1DD71DAEAAB4AD4CAB6
-        state: "{{ 'present' if php_package_source == 'sury_ondrej' else 'absent' }}"
-      register: _result_php_repo_ubuntu
-
-- name: Ensure Ondrej's PHP repository on Debian.
-  when: ansible_facts.distribution != 'Ubuntu'
+- name: Ensure Ondrej's PHP repository in deb822 format.
+  when: ansible_facts.distribution != 'Ubuntu' or ansible_facts.distribution_version is version('22.04', '>=')
   block:
     - name: Ensure required packages are installed.
       apt:
@@ -50,20 +38,25 @@
     - name: Ensure Ondrej's PHP repository on Debian.
       deb822_repository:  # available since Ansible 2.15
         name: sury_ondrej_php
-        uris: https://packages.sury.org/php/
+        uris: "{{ repo_uri }}"
         suites: "{{ ansible_facts.distribution_release }}"
         components: main
-        signed_by: https://packages.sury.org/php/apt.gpg
+        signed_by: "{{ repo_key }}"
         state: "{{ 'present' if php_package_source == 'sury_ondrej' else 'absent' }}"
-      register: _result_php_repo_debian
+      register: _result_php_repo_sury
+      vars:
+        use_ubuntu_ppa: "{{ ansible_facts.distribution == 'Ubuntu' and php_package_source_sury_ubuntu == 'ppa' }}"
+        repo_uri: "{{ 'https://ppa.launchpadcontent.net/ondrej/php/ubuntu'
+          if use_ubuntu_ppa else 'https://packages.sury.org/php/' }}"
+        repo_key: "{{ 'https://keyserver.ubuntu.com/pks/lookup?op=get&search=0xB8DC7E53946656EFBCE4C1DD71DAEAAB4AD4CAB6'
+          if use_ubuntu_ppa else 'https://packages.sury.org/php/apt.gpg' }}"
 
 - name: Update apt cache if needed.
   apt:
     update_cache: true
     cache_valid_time: "{{ 0 if update_required else apt_update_cache_valid_time | default(3600) }}"
   vars:
-    update_required: "{{ _result_php_repo_ubuntu is changed or _result_php_repo_debian is changed
-      or _result_php_repo_ubuntu_old is changed }}"
+    update_required: "{{ _result_php_repo_sury is changed or _result_php_repo_ubuntu_old is changed }}"
 
 
 # all repo versions
